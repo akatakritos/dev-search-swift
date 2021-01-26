@@ -12,27 +12,32 @@ import os
 
 
 struct GithubService {
-    let gitHubDecoder = JSONDecoder()
-    static let log = Logger(subsystem: "GithubService", category: "networking")
+    private let gitHubDecoder = JSONDecoder()
+    private static let log = Logger(subsystem: "GithubService", category: "networking")
 
     init () {
         gitHubDecoder.keyDecodingStrategy = .convertFromSnakeCase
     }
 
     func getUser(username: String) -> AnyPublisher<GithubUser?, Never> {
-        var request = URLRequest(url: URL(string: "https://api.github.com/users/\(username)")!)
+        let url = URL(string: "https://api.github.com/users/\(username)")!
+
+        return get(url: url, type: GithubUser?.self)
+            .replaceError(with: nil)
+            .eraseToAnyPublisher()
+    }
+
+    func get<T: Decodable>(url: URL, type: T.Type) -> AnyPublisher<T, Error> {
+        var request = URLRequest(url: url)
         request.addValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
         request.httpMethod = "GET"
 
-
         return URLSession.shared.dataTaskPublisher(for: request)
             .handleEvents(receiveSubscription: { _ in
-                GithubService.log.debug("\(request.httpMethod!) \(request.url!)")
+                Self.log.debug("\(request.httpMethod!) \(request.url!)")
             })
             .map { $0.data }
-            .handleEvents(receiveOutput: { data in print(data) })
-            .decode(type: GithubUser?.self, decoder: gitHubDecoder)
-            .replaceError(with: nil)
+            .decode(type: type, decoder: gitHubDecoder)
             .eraseToAnyPublisher()
     }
 }
@@ -41,4 +46,13 @@ struct GithubUser: Decodable {
     let login: String
     let name: String
     let avatarUrl: String
+}
+
+struct GithubRepository: Decodable {
+    let name: String
+    let fullName: String
+    let description: String?
+    let stargazersCount: Int
+    let watchersCount: Int
+    let forksCount: Int
 }

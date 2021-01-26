@@ -46,4 +46,27 @@ class GithubServiceTests: XCTestCase {
         XCTAssertNil(user)
     }
 
+    func testGetRepositories() {
+        let expectation = self.expectation(description: "loading repositories")
+        let subject = GithubService()
+
+        let repositories$ = subject.get(url: URL(string: "https://api.github.com/users/octocat/repos")!, type: [GithubRepository].self)
+
+        var repositories: [GithubRepository] = []
+        let token = repositories$.sink(receiveCompletion: { err in
+            print(err)
+            expectation.fulfill()
+        }, receiveValue: {
+            repositories = $0
+            expectation.fulfill()
+        })
+
+        wait(for: [expectation], timeout: 5)
+        token.cancel()
+        XCTAssertGreaterThan(repositories.count, 0)
+
+    }
+
 }
+
+func ignore<T>(t: T) -> Void  { }
